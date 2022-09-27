@@ -1,4 +1,6 @@
-use std::{env, fs, process, error::Error, io, io::Write};
+use std::{env, error::Error, fs, io, io::Write, process};
+
+mod token;
 
 fn run(source: &str) {
     println!("{source}");
@@ -43,4 +45,3 @@ fn main() {
         }
     }
 }
-
