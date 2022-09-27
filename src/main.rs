@@ -1,5 +1,6 @@
 use std::{env, error::Error, fs, io, io::Write, process};
 
+mod scanner;
 mod token;
 
 fn run(source: &str) {
