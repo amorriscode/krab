@@ -1,6 +1,28 @@
+use crate::{
+    token::{Token, TokenType},
+    value::Value,
+};
 use krab::error_line;
+use phf::phf_map;
 
-use crate::token::{Token, TokenType};
+static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
+    "and" => TokenType::And,
+    "class" => TokenType::Class,
+    "else" => TokenType::Else,
+    "false" => TokenType::False,
+    "for" => TokenType::For,
+    "fun" => TokenType::Fun,
+    "if" => TokenType::If,
+    "nil" => TokenType::Nil,
+    "or" => TokenType::Or,
+    "print" => TokenType::Print,
+    "return" => TokenType::Return,
+    "super" => TokenType::Super,
+    "this" => TokenType::This,
+    "true" => TokenType::True,
+    "var" => TokenType::Var,
+    "while" => TokenType::While,
+};
 
 pub struct Scanner {
     source: String,
@@ -22,12 +44,14 @@ impl Scanner {
     }
 
     fn is_at_end(&mut self) -> bool {
-        self.current > self.source.chars().count()
+        self.current >= self.source.chars().count()
     }
 
     fn advance(&mut self) -> char {
+        let c = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
-        self.source.chars().nth(self.current).unwrap()
+
+        c
     }
 
     fn is_match(&mut self, expected: char) -> bool {
@@ -39,18 +63,76 @@ impl Scanner {
         }
     }
 
-    fn peek(&mut self) -> char {
+    fn peek(&mut self, look_ahead: usize) -> char {
         if self.is_at_end() {
             '\0'
         } else {
-            self.source.chars().nth(self.current).unwrap()
+            self.source.chars().nth(self.current + look_ahead).unwrap()
         }
     }
 
-    fn add_token(&mut self, token_type: TokenType, value: Option<String>) {
+    fn add_token(&mut self, token_type: TokenType, value: Option<Value>) {
         let lexeme = &self.source[self.start..self.current];
         let token = Token::new(token_type, lexeme, value, self.line);
         self.tokens.push(token);
+    }
+
+    fn string(&mut self) {
+        while self.peek(0) != '"' && !self.is_at_end() {
+            if self.peek(0) == '\n' {
+                self.line += 1;
+            }
+
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            error_line(self.line, "Unterminated string");
+            return;
+        }
+
+        // We found the closing ".
+        self.advance();
+
+        let string = self.source[self.start + 1..self.current - 1].to_string();
+        self.add_token(TokenType::String, Some(Value::String(string)));
+    }
+
+    fn number(&mut self) {
+        // Find the end of the number or a decimal
+        while self.peek(0).is_digit(10) {
+            self.advance();
+        }
+
+        if self.peek(0) == '.' && self.peek(1).is_digit(10) {
+            self.advance();
+
+            // Find the rest of the number
+            while self.peek(0).is_digit(10) {
+                self.advance();
+            }
+        }
+
+        let lexeme = &self.source[self.start..self.current];
+        let value = lexeme.parse().expect("Must be a valid double");
+
+        self.add_token(TokenType::Number, Some(Value::Number(value)));
+    }
+
+    fn identifier(&mut self) {
+        loop {
+            let c = self.peek(0);
+            if c == '_' || c.is_alphanumeric() {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        let lexeme = &self.source[self.start..self.current];
+        let token_type = KEYWORDS.get(lexeme).unwrap_or(&TokenType::Identifier);
+
+        self.add_token(*token_type, None)
     }
 
     fn scan_token(&mut self) {
@@ -101,7 +183,7 @@ impl Scanner {
             }
             '/' => {
                 if self.is_match('/') {
-                    while self.peek() != '\n' && !self.is_at_end() {
+                    while self.peek(0) != '\n' && !self.is_at_end() {
                         self.advance();
                     }
                 } else {
@@ -111,7 +193,10 @@ impl Scanner {
             // Ignore whitespace
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
-            _ => error_line(self.line, "Unexpected character."),
+            '"' => self.string(),
+            c if c.is_digit(10) => self.number(),
+            c if c == '_' || c.is_alphabetic() => self.identifier(),
+            _ => error_line(self.line, "Unexpected character"),
         }
     }
 

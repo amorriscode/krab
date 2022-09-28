@@ -1,3 +1,6 @@
+use crate::value::Value;
+
+#[derive(Copy, Clone, Debug)]
 pub enum TokenType {
     // Single-character tokens
     LeftParen,
@@ -41,21 +44,23 @@ pub enum TokenType {
     Return,
     Super,
     This,
+    True,
     Var,
     While,
 
     Eof,
 }
 
+#[derive(Debug)]
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<String>,
+    literal: Option<Value>,
     line: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: &str, literal: Option<String>, line: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: &str, literal: Option<Value>, line: usize) -> Self {
         Self {
             token_type,
             lexeme: lexeme.to_string(),

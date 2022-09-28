@@ -2,9 +2,16 @@ use std::{env, error::Error, fs, io, io::Write, process};
 
 mod scanner;
 mod token;
+mod value;
 
 fn run(source: &str) {
-    println!("{source}");
+    let mut scanner = scanner::Scanner::new(source);
+
+    let tokens = scanner.scan_tokens();
+
+    for token in tokens {
+        println!("{:?}", token)
+    }
 }
 
 fn run_file(path: &str) -> Result<(), Box<dyn Error>> {
